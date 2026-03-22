@@ -13,6 +13,9 @@ channels:
     enabled: false
   telegram:
     enabled: false
+  teams:
+    enabled: false
+    port: 3978
 
 # Remote workspaces (populated by /setup-remote-project and /setup-remote-workspace)
 # Each entry maps a workspace to a remote listener
