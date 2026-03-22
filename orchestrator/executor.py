@@ -44,7 +44,7 @@ async def run_workspace(project: str, workspace: str, task: str,
     options = ClaudeAgentOptions(
         cwd=str(cwd), max_turns=100,
         allowed_tools=["Read","Write","Edit","Bash","Glob","Grep","Agent","WebFetch","WebSearch","TodoWrite","NotebookEdit","Skill"],
-        setting_sources=["project"], permission_mode="bypassPermissions",
+        setting_sources=["project", "user"], permission_mode="bypassPermissions",
     )
 
     collected_texts: list[str] = []

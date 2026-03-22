@@ -22,8 +22,8 @@ async def handle_direct_request(user_message: str) -> str:
     stderr_lines: list[str] = []
     options = ClaudeAgentOptions(
         cwd=str(BASE), system_prompt=DIRECT_HANDLER_SYSTEM_PROMPT,
-        allowed_tools=["Read","Glob","Grep","Bash","WebFetch","WebSearch"],
-        max_turns=30, setting_sources=["project"],
+        allowed_tools=["Read","Glob","Grep","Bash","WebFetch","WebSearch","Skill"],
+        max_turns=30, setting_sources=["project", "user"],
         permission_mode="bypassPermissions", model="sonnet",
         stderr=lambda line: stderr_lines.append(line),
     )
