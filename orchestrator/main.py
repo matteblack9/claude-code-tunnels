@@ -34,6 +34,14 @@ async def main() -> None:
         tasks.append(asyncio.create_task(tg_ch.start()))
         logger.info("  Telegram: Long Polling")
 
+    if channels_config.get("teams", {}).get("enabled"):
+        from orchestrator.channel.teams import TeamsChannel
+        teams_port = channels_config.get("teams", {}).get("port", 3978)
+        teams_ch = TeamsChannel(confirm_gate, port=teams_port)
+        register_channel("teams", teams_ch)
+        tasks.append(asyncio.create_task(teams_ch.start()))
+        logger.info("  Teams: Bot Framework webhook on port %d", teams_port)
+
     loop = asyncio.get_running_loop()
     stop_event = asyncio.Event()
     for sig in (signal.SIGINT, signal.SIGTERM):
