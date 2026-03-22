@@ -1,0 +1,12 @@
+{
+  "name": "claude-tunnels",
+  "description": "Turn any folder of projects into an AI-orchestrated workspace — route tasks from Slack or Telegram to the right project, execute in dependency-aware phases, and get structured results back.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Claude Tunnels"
+  },
+  "homepage": "https://github.com/matteblack9/claude-tunnels",
+  "repository": "https://github.com/matteblack9/claude-tunnels",
+  "license": "MIT",
+  "keywords": ["orchestrator", "slack", "telegram", "multi-project", "automation", "agent"]
+}
