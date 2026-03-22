@@ -48,7 +48,7 @@ Claude Code [recently introduced Channels](https://docs.anthropic.com/en/docs/cl
 | **Session model** | Session-bound (stops when CLI closes) | Background daemon (survives disconnects) |
 | **Multi-project** | One session = one project | PO routes to any project, runs multiple in parallel |
 | **Workspace orchestration** | None — flat message bridge | Phase-based dependency analysis, parallel execution, upstream context passing |
-| **Supported channels** | Telegram, Discord (preview) | **Slack, Telegram** |
+| **Supported channels** | Telegram, Discord (preview) ... | Telegram, Discord Slack, ...  |
 | **ConfirmGate** | None | Built-in: user must confirm before execution starts |
 | **Task logging** | None | `.tasks/` auto-logging with 30-day retention |
 | **Remote workspaces** | Not possible | SSH/kubectl listener for external machines and K8s pods |
