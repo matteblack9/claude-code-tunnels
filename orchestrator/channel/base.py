@@ -135,15 +135,14 @@ class BaseChannel(ABC):
             callback_info=callback_info,
             raw_message=user_text,
         )
-        session.pending_request_id = request_id
-        session.state = SessionState.PENDING_CONFIRM
 
-        confirm_msg = (
-            f"[{request_id}] I understood your request as:\n"
-            f"> {user_text}\n\n"
-            f'Reply "yes" to proceed, "cancel" to abort.'
+        # Auto-confirm: skip the yes/no prompt and execute immediately
+        session.pending_request_id = None
+        session.state = SessionState.EXECUTING
+        await self._send_and_record(
+            session, callback_info, f"`{request_id}` Starting work..."
         )
-        await self._send_and_record(session, callback_info, confirm_msg)
+        await self._do_confirm(session, request_id, callback_info)
 
     async def _do_confirm(
         self,

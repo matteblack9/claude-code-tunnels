@@ -1,6 +1,6 @@
 ---
 name: setup-orchestrator
-description: "Full Claude-Code-Tunnels setup. Installs the Project Orchestrator in the current directory, configures environment, discovers workspaces, connects Slack/Telegram channels, and tests the connection. Run with /setup-orchestrator. Use for requests like 'install orchestrator', 'setup PO', 'setup orchestrator'."
+description: "Full Claude-Code-Tunnels setup. Installs the Project Orchestrator in the current directory, configures environment, discovers workspaces, connects Slack/Telegram/Teams channels, and tests the connection. Run with /setup-orchestrator. Use for requests like 'install orchestrator', 'setup PO', 'setup orchestrator'."
 ---
 
 # Claude-Code-Tunnels Setup
@@ -91,7 +91,7 @@ Ask the user for ALL of the following at once:
 
 2. ARCHIVE_PATH: Credential storage directory (default: PROJECT_ROOT/ARCHIVE)
 
-3. Channels to enable: slack / telegram / multiple (required — must ask)
+3. Channels to enable: slack / telegram / teams / multiple (required — must ask)
 ```
 
 If `$ARGUMENTS` provides PROJECT_ROOT, use it without asking.
@@ -130,6 +130,9 @@ channels:
     enabled: true/false
   telegram:
     enabled: true/false
+  teams:
+    enabled: true/false
+    port: 3978
 remote_workspaces: []
 ```
 
@@ -159,6 +162,7 @@ Use the confirmed `PIP_CMD`:
 $PIP_CMD install claude-agent-sdk aiohttp pyyaml
 $PIP_CMD install slack-bolt slack-sdk        # if Slack
 # Telegram uses aiohttp (already installed)
+$PIP_CMD install botbuilder-integration-aiohttp  # if Teams
 ```
 
 If installation fails, show the exact error and ask the user:
@@ -185,6 +189,13 @@ If installation fails, show the exact error and ask the user:
    - Copy the bot token
 3. Collect: bot_token, optionally allowed_users (comma-separated)
 4. Create credential file
+
+#### Teams
+1. Check if ARCHIVE_PATH/teams/credentials exists
+2. If not -> show Azure Bot registration guide (same as /connect-teams Step 2)
+3. Collect: app_id, app_password, app_type, optionally allowed_users
+4. Create credential file
+5. Remind user they need a public HTTPS URL for the messaging endpoint
 
 ### Phase 8: Test & Finish
 
