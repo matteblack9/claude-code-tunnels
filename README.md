@@ -169,6 +169,55 @@ Claude Code [recently introduced Channels](https://docs.anthropic.com/en/docs/cl
 
 ---
 
+## Team Collaboration — Shared Channel, Zero Handoff
+
+Traditional setups tie the AI assistant to one person's session. Claude-Code-Tunnels flips this: **the orchestrator lives in the Slack channel, not on anyone's laptop**. Invite the app to a shared channel, invite your teammates — now anyone in the channel can interact with the orchestrator. When you're on vacation, out sick, or simply offline, your team keeps working with full access to every project and workspace.
+```mermaid
+flowchart TB
+    subgraph SLACK["#dev-orchestrator · Slack Channel"]
+        APP["🤖 Orchestrator App<br/><small>always online</small>"]
+        YOU["👤 You<br/><small>on vacation 🏖️</small>"]
+        TM1["👤 Teammate A"]
+        TM2["👤 Teammate B"]
+    end
+
+    TM1 -->|"💬 'Deploy hotfix to staging'"| APP
+    TM2 -->|"💬 'Run tests on backend'"| APP
+    YOU -.->|"offline"| APP
+
+    APP --> PO["🧠 Project Orchestrator"]
+
+    PO --> W1["backend<br/><small>hotfix applied</small>"]
+    PO --> W2["infra/staging<br/><small>deployed</small>"]
+    PO --> W3["backend/tests<br/><small>test suite run</small>"]
+
+    W1 & W2 -->|"results"| TM1
+    W3 -->|"results"| TM2
+
+    style SLACK fill:#F1EFE8,stroke:#5F5E5A
+    style APP fill:#EEEDFE,stroke:#534AB7,color:#3C3489
+    style YOU fill:#FAEEDA,stroke:#854F0B,color:#633806
+    style TM1 fill:#E1F5EE,stroke:#0F6E56,color:#04342C
+    style TM2 fill:#E1F5EE,stroke:#0F6E56,color:#04342C
+    style PO fill:#EEEDFE,stroke:#534AB7,color:#3C3489
+    style W1 fill:#CECBF6,stroke:#534AB7,color:#26215C
+    style W2 fill:#CECBF6,stroke:#534AB7,color:#26215C
+    style W3 fill:#CECBF6,stroke:#534AB7,color:#26215C
+```
+
+**No handoff required.** The orchestrator already knows every project's structure via `CLAUDE.md` files and workspace configurations. A teammate doesn't need your local environment, your CLI session, or your explanation of "how things are set up." They just type a message in the channel.
+
+| Scenario | Without Tunnels | With Tunnels |
+|----------|----------------|--------------|
+| You're on vacation | Team waits or struggles with unfamiliar setup | Team messages the channel, orchestrator handles it |
+| New team member joins | Needs onboarding on every project's tooling | Posts in the channel, gets results immediately |
+| Urgent hotfix at 3 AM | Someone must SSH in and run commands manually | Anyone in the channel triggers the full pipeline |
+| Knowledge transfer | Docs, meetings, shadowing sessions | The orchestrator *is* the institutional knowledge |
+
+> **One app. One channel. The whole team.** The orchestrator doesn't care who's asking — it routes to the right project, builds the execution plan, and delegates to workspace agents. Your team's velocity is no longer bottlenecked by any single person's availability.
+
+---
+
 ## How Delegation Works
 
 The core value of Claude-Code-Tunnels is **delegation** — even with dozens of projects and workspaces, the PO analyzes a single natural-language request, identifies the right targets, builds a dependency-aware execution plan, and delegates each piece to the appropriate workspace agent. You never have to specify which project or workspace to touch.
