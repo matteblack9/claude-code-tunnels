@@ -11,12 +11,18 @@
 
 Micro Agent Manager is an orchestration layer for project trees. A message arrives from Slack or Telegram, the **Project Orchestrator (PO)** routes it, builds a dependency-aware execution plan, and delegates each workspace task to a **Workspace Orchestrator (WO)**.
 
-This version keeps the Python control plane, but expands execution beyond a Claude-only model:
+This version keeps the Python control plane, but expands execution beyond a single-runtime model:
 
 - `claude` runs through the existing Python `claude-agent-sdk`
 - `codex` runs through a local Node bridge that uses the official `@openai/codex-sdk`
 - `opencode` runs through the same bridge with `@opencode-ai/sdk`
-- initial setup is handled by a Textual TUI that proposes the `PO` root, `ARCHIVE` path, workspace candidates, and WO runtime assignments
+- initial setup is handled by a Textual TUI that proposes the `PO` root, `ARCHIVE` path, workspace candidates, WO runtime assignments, and root guidance files
+
+Guidance is runtime-aware:
+
+- `claude` prefers `CLAUDE.md` and existing `.claude/` memory/rules
+- `codex` prefers `AGENTS.md` and explicit repo instructions
+- `opencode` also works best with `AGENTS.md`, and requires provider login before execution
 
 Short glossary:
 
@@ -60,8 +66,8 @@ graph LR
         SINGLE -->|"decompose"| WC
 
         subgraph IB["isolated workspace boundaries"]
-            WA["WO: backend"] --> WA_CTX["CLAUDE.md / AGENTS.md / .claude"]
-            WB["WO: frontend"] --> WB_CTX["CLAUDE.md / AGENTS.md / .claude"]
+            WA["WO: backend"] --> WA_CTX["AGENTS.md / CLAUDE.md / .claude"]
+            WB["WO: frontend"] --> WB_CTX["AGENTS.md / CLAUDE.md / .claude"]
             WC["WO: staging"] --> WC_CTX["runtime config + remote listener"]
         end
     end
@@ -120,7 +126,7 @@ Claude Code has a Channels feature that forwards chat messages into a running CL
 | **Session model** | Bound to a running session | Background daemon with per-workspace execution |
 | **Workspace orchestration** | None | Phase-based planning with upstream context passing |
 | **Session isolation** | Shared session | One isolated WO per workspace |
-| **Runtime** | Claude-only session bridge | `claude`, `codex`, `opencode` through one control plane |
+| **Runtime** | Single Claude session bridge | `claude`, `codex`, `opencode` through one control plane |
 | **Remote workspaces** | Not supported | HTTP listener for remote hosts and pods |
 | **Task logging** | None | `.tasks/` logging with runtime metadata |
 | **Confirm gate** | None | Built-in confirm/cancel flow |
@@ -157,7 +163,7 @@ flowchart TB
     W3 --> T2
 ```
 
-**No handoff required.** The orchestrator already knows workspace structure through `orchestrator.yaml`, root guidance such as `CLAUDE.md` and `AGENTS.md`, and workspace-specific instructions. A teammate does not need your local terminal state or your memory of "how this repo works."
+**No handoff required.** The orchestrator already knows workspace structure through `orchestrator.yaml`, shared instructions in `AGENTS.md`, Claude-specific context in `CLAUDE.md` or `.claude/`, and workspace-specific runtime settings. A teammate does not need your local terminal state or your memory of "how this repo works."
 
 | Scenario | Without Tunnels | With Tunnels |
 |----------|----------------|--------------|
@@ -321,14 +327,14 @@ cd claude-code-tunnels
 ./start-orchestrator.sh --fg
 ```
 
-The repository name is still `claude-code-tunnels`; the README title is now runtime-neutral because this branch is no longer Claude-only.
+The repository name is still `claude-code-tunnels`; the README title is runtime-neutral because this branch supports multiple coding agents.
 
 The setup TUI:
 
 1. checks whether the current folder already looks like a `PO` root
 2. suggests the `PO` root, `ARCHIVE` path, and workspace candidates
 3. lets you assign one `WO` per selected workspace
-4. writes `orchestrator.yaml`, `start-orchestrator.sh`, `CLAUDE.md`, and `AGENTS.md` when needed
+4. writes `orchestrator.yaml`, `start-orchestrator.sh`, and root runtime guidance files (`AGENTS.md`, `CLAUDE.md`) when needed
 5. shows the exact commands to run next
 
 ---
@@ -514,6 +520,30 @@ Runtime selection follows this order:
 2. `runtime.roles[role]`
 3. `runtime.default`
 4. fallback `claude`
+
+### Runtime Guidance Files
+
+Runtime guidance is runtime-aware. The same repository can expose different instructions to different coding agents:
+
+| Runtime | Primary guidance | Characteristics | Best use |
+|---------|------------------|-----------------|----------|
+| `claude` | `CLAUDE.md` and `.claude/` | Hierarchical project memory, rules, and existing Claude workflows are loaded naturally through the Python SDK path | Reusing existing Claude Code project setups without rewriting guidance |
+| `codex` | `AGENTS.md` | Works best with explicit repo instructions and structured task framing; the Node bridge is also used for schema-driven output | Shared coding rules, step-by-step repo policies, and structured execution |
+| `opencode` | `AGENTS.md` | Similar guidance style to Codex, but requires provider login and runs through the OpenCode SDK session flow | Multi-runtime teams that want one shared instruction file outside the Claude ecosystem |
+
+Supporting files:
+
+| File | Used by | Purpose |
+|------|---------|---------|
+| `AGENTS.md` | Primarily `codex` and `opencode`; also useful as shared human-readable guidance | Canonical runtime-neutral operating rules |
+| `CLAUDE.md` | `claude` | Claude-specific project and workspace guidance |
+| `.claude/` | `claude` and legacy Claude setups | Existing Claude memory, rules, and skills |
+
+Recommended pattern:
+
+- Put shared workflow rules, repo conventions, and task expectations in `AGENTS.md`
+- Keep `CLAUDE.md` for Claude-specific prompt framing or compatibility with existing Claude projects
+- Keep `.claude/` only when you actively rely on Claude memory, rules, or skills
 
 ### Session State Machine
 
@@ -784,11 +814,11 @@ Adjust the system prompt in `orchestrator/direct_handler.py` to integrate your o
 
 Control WO behavior through guidance files:
 
-- `CLAUDE.md` for Claude-oriented workflows
-- `AGENTS.md` for Codex and OpenCode-oriented workflows
-- `.claude/` for existing Claude memory and rules
+- `AGENTS.md` should hold shared repo rules for `codex` and `opencode`, and is the best default for runtime-neutral instructions
+- `CLAUDE.md` should hold Claude-specific framing when the `claude` runtime needs extra project context
+- `.claude/` should be kept only for Claude memory, rules, and skills you still actively depend on
 
-The setup flow creates root-level `CLAUDE.md` and `AGENTS.md` when missing. Workspace-level guidance remains under your control.
+The setup flow creates root-level `AGENTS.md` and `CLAUDE.md` when missing. In practice, treat `AGENTS.md` as the shared contract across runtimes, then layer Claude-only behavior in `CLAUDE.md` or `.claude/` where necessary.
 
 ---
 
