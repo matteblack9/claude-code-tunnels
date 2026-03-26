@@ -4,39 +4,6 @@
 
 Claude-Code-Tunnels is a plugin that builds a **Project Orchestrator (PO)** layer on top of [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code). Send a message from Slack or Telegram and the orchestrator analyzes the request, identifies the appropriate project and workspace, builds an execution plan with dependency awareness, delegates tasks to workspace-level Claude agents, and returns structured results.
 
-```
- Slack / Telegram
-          │
-    ┌─────▼─────┐
-    │  Channel   │  (message receive, confirm gate)
-    │  Adapter   │
-    └─────┬─────┘
-          │
-    ┌─────▼─────┐
-    │   Router   │  (identify target project)
-    └─────┬─────┘
-          │
-    ┌─────▼─────┐
-    │     PO     │  (analyze request → build phased execution plan)
-    └─────┬─────┘
-          │
-    ┌─────▼─────┐
-    │  Executor  │  (phase-by-phase workspace execution)
-    │            │
-    │  Phase 1:  │──→ [ws-a] [ws-b]  (parallel)
-    │  Phase 2:  │──→ [ws-c]         (runs after phase 1)
-    └─────┬─────┘
-          │
-    ┌─────▼─────┐
-    │  Task Log  │  (.tasks/ directory, 30-day retention)
-    └─────┬─────┘
-          │
-    ┌─────▼─────┐
-    │  Channel   │  (format and return results)
-    │  Adapter   │
-    └───────────┘
-```
-
 ---
 
 ## Difference from Claude Code's Built-in Channels
