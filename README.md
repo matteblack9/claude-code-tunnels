@@ -81,7 +81,7 @@ flowchart TB
 
 ## How Delegation Works
 
-The core value of Claude-Code-Tunnels is **delegation** — even with dozens of projects and workspaces, the PO analyzes a single natural-language request, identifies the right targets, builds a dependency-aware execution plan, and delegates each piece to the appropriate workspace agent. You never have to specify which project or workspace to touch.
+The core value of Claude-Code-Tunnels is **delegation** — even with dozens of projects and workspaces, the PO(Project Orchestrator) analyzes a single natural-language request, identifies the right targets, builds a dependency-aware execution plan, and delegates each piece to the appropriate workspace agent. You never have to specify which project or workspace to touch.
 
 Two properties make this scale:
 
