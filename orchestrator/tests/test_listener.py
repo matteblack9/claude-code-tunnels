@@ -8,8 +8,13 @@ from orchestrator.remote import listener
 
 
 def test_build_prompt_wraps_task_and_upstream_context():
-    prompt = listener.build_prompt("deploy it", {"backend": "API ready"})
+    prompt = listener.build_prompt(
+        "deploy it",
+        {"backend": "API ready"},
+        "## Local Skill Playbooks\n- connect-slack",
+    )
 
+    assert "Local Skill Playbooks" in prompt
     assert "<upstream_context>" in prompt
     assert "backend: API ready" in prompt
     assert "<task>" in prompt

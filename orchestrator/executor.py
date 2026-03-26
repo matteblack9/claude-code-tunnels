@@ -14,6 +14,7 @@ from orchestrator import (
 )
 from orchestrator.runtime import RuntimeInvocation, execute_runtime
 from orchestrator.sanitize import wrap_user_input, sanitize_downstream_context
+from orchestrator.skills import build_skills_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -70,13 +71,16 @@ async def run_workspace(
     delegates to the remote listener via HTTP instead of local query().
     """
     remote_config = resolve_remote_workspace_config(workspace)
+    skill_context = build_skills_prompt(task, base_dir or BASE)
     if remote_config:
-        return await _run_remote_workspace(remote_config, task, upstream_context)
+        return await _run_remote_workspace(remote_config, task, upstream_context, skill_context)
 
     cwd = resolve_workspace_path(project, workspace, base_dir or BASE)
     runtime = resolve_runtime_name("executor", workspace_id=workspace)
 
     parts: list[str] = []
+    if skill_context:
+        parts.append(skill_context)
     if upstream_context:
         sanitized_ctx = sanitize_downstream_context(upstream_context)
         ctx_lines = [f"- {ws}: {summary}" for ws, summary in sanitized_ctx.items()]
@@ -171,6 +175,7 @@ async def _run_remote_workspace(
     remote_config: dict,
     task: str,
     upstream_context: dict[str, str] | None = None,
+    skill_context: str = "",
 ) -> dict:
     """Execute a task on a remote listener via HTTP POST /execute."""
     import aiohttp
@@ -192,6 +197,7 @@ async def _run_remote_workspace(
                     "task": task,
                     "runtime": runtime,
                     "upstream_context": upstream_context or {},
+                    "skill_context": skill_context,
                 },
                 headers=headers,
                 timeout=aiohttp.ClientTimeout(total=None),

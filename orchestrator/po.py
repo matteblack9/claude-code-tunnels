@@ -13,6 +13,7 @@ from orchestrator import (
 )
 from orchestrator.runtime import RuntimeInvocation, execute_runtime
 from orchestrator.sanitize import wrap_user_input
+from orchestrator.skills import build_skills_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,8 @@ You are the Project Orchestrator. You NEVER modify code directly.
 3. **For this task only**, determine the execution order (phases) across workspaces.
 4. For projects with no workspaces (or tasks that must run directly from the project root), \
 set the workspace to "." so execution runs from the project root.
+5. If the request matches a local skill under `skills/`, use that skill as the primary playbook.
+   Setup/channel/orchestrator tasks usually execute from the project root `"."` unless the skill explicitly targets a workspace.
 
 ## Phase determination criteria
 - Workspaces within the same phase run in parallel.
@@ -90,6 +93,9 @@ async def get_execution_plan(
     base = base_dir or BASE
     cwd = base / project if project else base
     system_prompt = PO_SYSTEM_PROMPT
+    skills_prompt = build_skills_prompt(user_message, base)
+    if skills_prompt:
+        system_prompt += "\n\n" + skills_prompt
     if uses_workspace_registry():
         registry_lines = [
             f"- {entry.get('id')}: {entry.get('path')}"

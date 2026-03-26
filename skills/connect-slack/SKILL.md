@@ -1,170 +1,110 @@
 ---
 name: connect-slack
-description: "Skill for connecting a Slack channel to the Claude-Code-Tunnels Orchestrator. Guides Slack App creation, configures Socket Mode, collects credentials, and verifies the connection. Execute with /claude-code-tunnels:connect-slack."
+description: "Connect Slack to an existing orchestrator by collecting Socket Mode credentials, saving them under ARCHIVE, and validating the channel."
 ---
 
-# Connect Slack Channel
+# connect-slack
 
-Adds a Slack channel to an existing Claude-Code-Tunnels Orchestrator.
-Connects via Socket Mode (WebSocket), so no public IP or callback URL is required.
+## When To Use
+
+- The user wants to connect or repair the Slack channel
+- Slack credentials are missing, expired, or stored in the wrong place
+- `channels.slack.enabled` must be turned on in `orchestrator.yaml`
+
+Slack uses Socket Mode, so no public callback URL is required.
+
+## Runtime Adaptation
+
+- `claude`
+  Read this file first, then use `CLAUDE.md` or `.claude/` only as extra repo context.
+- `cursor`
+  Follow this file first, then apply `.cursor/rules`, `AGENTS.md`, and `CLAUDE.md` if they add local policy.
+- `codex`
+  Treat this file as the operational checklist. Do not assume slash-command wrappers exist.
+- `opencode`
+  Follow this file first, then honor `AGENTS.md` and any OpenCode-specific config already present.
 
 ## Rules
 
-- **Never proceed without asking the user**
-- **Auto-detected values are presented as numbered choices first** — the user only needs to enter a number
-- If an existing credentials file is found, always confirm with the user before overwriting
-- Credential files use the `key : value` format (spaces on both sides of the colon)
-- The ARCHIVE/ directory must not be committed to git
+- Never overwrite an existing credentials file without explicit confirmation
+- Present auto-detected values as numbered choices whenever possible
+- Credential files use `key : value` formatting with spaces on both sides of the colon
+- `ARCHIVE/` must stay outside git tracking
+- Ask for secrets one field at a time and mask them in summaries
 
----
+## Procedure
 
-## Step 0: Environment Preflight (CRITICAL)
+### 1. Environment Preflight
 
-Connecting Slack requires the orchestrator to be installed, pip packages present, and a credentials file.
-Check each item in order — **if any check fails, do not proceed to the next step until it is resolved.**
+Connecting Slack requires the orchestrator to be installed, Python packages to be available, and a writable credential location.
 
-### 0-1. Verify orchestrator.yaml
+#### 1-1. Verify `orchestrator.yaml`
 
-**Why it is needed**: the Slack adapter reads channel activation status and the ARCHIVE path from orchestrator.yaml. Without this file, adapter initialization will fail.
+If the file is missing, stop and run the `setup-orchestrator` skill first.
 
-```bash
-if [ ! -f "orchestrator.yaml" ]; then
-  echo "orchestrator.yaml not found."
-  echo "Please run /claude-code-tunnels:setup-orchestrator first."
-  # -> stop here
-fi
-```
+#### 1-2. Verify `ARCHIVE_PATH`
 
-### 0-2. Verify ARCHIVE_PATH
-
-**Why it is needed**: Slack credentials (app_id, bot_token, etc.) are stored in `ARCHIVE/slack/credentials`.
+Resolve it from `orchestrator.yaml`:
 
 ```bash
 ARCHIVE_PATH=$(python3 -c "import yaml; print(yaml.safe_load(open('orchestrator.yaml')).get('archive', 'ARCHIVE'))")
 ```
 
-```
-Confirming credential storage path.
+Confirm the value before writing secrets.
 
-  [1] $ARCHIVE_PATH   <- value read from orchestrator.yaml
-  [2] Enter manually
-
-Number:
-```
-
-### 0-3. Verify pip + packages
-
-**Why they are needed**: `slack-bolt` (Socket Mode handler) and `slack-sdk` (Web API client) are required. Without them, `from slack_bolt import ...` will raise an ImportError.
+#### 1-3. Verify Python packages
 
 ```bash
-$PYTHON_CMD -c "import slack_bolt" 2>/dev/null  # slack-bolt
-$PYTHON_CMD -c "import slack_sdk" 2>/dev/null   # slack-sdk
+$PYTHON_CMD -c "import slack_bolt" 2>/dev/null
+$PYTHON_CMD -c "import slack_sdk" 2>/dev/null
 ```
 
-If not installed:
-```
-The following packages required for Slack connection are not installed:
-  - slack-bolt  (Socket Mode connection and event handling)
-  - slack-sdk   (Slack Web API calls — message sending)
+If either package is missing, offer:
 
-  [1] Install now ($PIP_CMD install slack-bolt slack-sdk)
-  [2] Skip (install manually and continue)
-
-Number:
+```text
+[1] Install now
+[2] Install manually and continue later
 ```
 
-### 0-4. Check for existing credentials
+#### 1-4. Check for existing credentials
 
-**Why it is needed**: if Slack is already configured, the user must decide whether to overwrite the existing setup.
+If `ARCHIVE/slack/credentials` already exists, show a masked summary and ask whether to overwrite it.
 
-```bash
-if [ -f "$ARCHIVE_PATH/slack/credentials" ]; then
-  echo "Existing credentials found"
-fi
+### 2. Slack App Setup Guide
+
+If the user has not created a Slack App yet, guide them through:
+
+```text
+1. https://api.slack.com/apps -> Create New App -> From scratch
+2. Choose the workspace
+3. Settings -> Socket Mode -> Enable
+4. Create an App-Level Token with `connections:write`
+5. Event Subscriptions -> Enable events
+6. Subscribe to `message.channels` and `app_mention`
+7. OAuth & Permissions -> add `chat:write`, `channels:history`, `app_mentions:read`
+8. Install the app to the workspace
 ```
 
-If an existing file is found:
-```
-Existing Slack credentials already exist:
-  app_id:           A0123...
-  bot_token:        xoxb-...
+### 3. Collect Credentials
 
-  [1] Overwrite (enter new values)
-  [2] Keep existing values (update configuration only)
-  [3] Cancel
+Ask for these fields one at a time:
 
-Number:
-```
+1. `app_id`
+2. `client_id`
+3. `client_secret`
+4. `signing_secret`
+5. `app_level_token`
+6. `bot_token`
 
----
+Validation rules:
 
-## Step 1: Slack App Setup Guide
+- `app_level_token` must start with `xapp-`
+- `bot_token` must start with `xoxb-`
 
-If no Slack App exists yet, provide guidance:
+Summary before writing:
 
-```
-Slack App Setup:
-1. https://api.slack.com/apps → Create New App → "From scratch"
-2. Set a name and select your workspace
-3. Settings → Socket Mode → Enable Socket Mode
-   - Generate an App-level token (xapp-...) — connections:write scope
-4. Event Subscriptions → Enable Events
-   - Subscribe: message.channels, app_mention
-5. OAuth & Permissions → Bot Token Scopes:
-   - chat:write, channels:history, app_mentions:read
-6. Install App to Workspace
-7. Copy the Bot Token (xoxb-...)
-
-Are you ready? (yes — start entering credentials / no — show detailed guide)
-```
-
----
-
-## Step 2: Collect Credentials (6 fields)
-
-**Ask the user for each field one at a time. Empty values are not accepted.**
-
-Accompany each field prompt with **a one-line explanation of why it is needed**:
-
-```
-─────────────────────────────────────────────────────────────────
-1. app_id
-   Shown on the Basic Information page of your Slack App settings.
-   Format: starts with A (e.g. A0123456789)
-   Enter:
-
-2. client_id
-   Shown under Basic Information → App Credentials.
-   Format: number.number (e.g. 1234567890.1234567890)
-   Enter:
-
-3. client_secret
-   Shown in the same App Credentials section. Click Show to copy it.
-   Enter:
-
-4. signing_secret
-   Same App Credentials section. Used to verify the integrity of incoming bot requests.
-   Enter:
-
-5. app_level_token
-   Generate under Settings → Basic Information → App-Level Tokens.
-   Used for authentication when establishing the Socket Mode connection.
-   Format: starts with xapp-
-   Validation: if it does not start with xapp- → "Invalid format. Please enter the full token starting with xapp-."
-   Enter:
-
-6. bot_token
-   Found under OAuth & Permissions → Bot User OAuth Token.
-   Used to send messages (chat_postMessage).
-   Format: starts with xoxb-
-   Validation: if it does not start with xoxb- → "Invalid format."
-   Enter:
-─────────────────────────────────────────────────────────────────
-```
-
-Summary after collection:
-```
-Slack Credentials entered:
+```text
+Slack credentials entered:
   app_id:           A0123456789
   client_id:        1234567890.1234567890
   client_secret:    ****
@@ -175,52 +115,52 @@ Slack Credentials entered:
 Save with these values? (yes/no)
 ```
 
----
+### 4. Save Configuration
 
-## Step 3: Save Configuration
+After confirmation, write:
 
-After user confirmation:
-
-```bash
-mkdir -p $ARCHIVE_PATH/slack/
-
-cat > $ARCHIVE_PATH/slack/credentials << 'EOF'
-app_id : $APP_ID
-client_id : $CLIENT_ID
-client_secret : $CLIENT_SECRET
-signing_secret : $SIGNING_SECRET
-app_level_token : $APP_LEVEL_TOKEN
-bot_token : $BOT_TOKEN
-EOF
+```text
+ARCHIVE/slack/credentials
 ```
 
-Update orchestrator.yaml:
+with:
+
+```text
+app_id : ...
+client_id : ...
+client_secret : ...
+signing_secret : ...
+app_level_token : ...
+bot_token : ...
+```
+
+Then update:
+
 ```yaml
 channels:
   slack:
     enabled: true
 ```
 
----
+### 5. Validate The Channel
 
-## Step 4: Connection Test
+Run:
 
 ```bash
-cd $PROJECT_ROOT && ./start-orchestrator.sh --fg &
-sleep 5
-# Confirm "Slack channel starting (Socket Mode)..." in the logs
+./start-orchestrator.sh --fg
 ```
 
-- Success → "Slack connection complete. Send a message to the bot in Slack to test it."
-- Failure → show the error log to the user and analyze the cause. Do not retry automatically.
+Confirm:
 
-## Credential File Format
+- Slack startup logs appear without auth/import errors
+- the Socket Mode connection is established
+- the user can send a real Slack message to the bot
 
-```
-app_id : A0123456789
-client_id : 1234567890.1234567890
-client_secret : abcdef1234567890
-signing_secret : abcdef1234567890
-app_level_token : xapp-1-A0123-1234567890-abcdef
-bot_token : xoxb-1234567890-1234567890-abcdef
-```
+If validation fails, show the error and stop instead of retrying automatically.
+
+## Completion Checklist
+
+- `ARCHIVE/slack/credentials` exists with the expected keys
+- `channels.slack.enabled` is true in `orchestrator.yaml`
+- the orchestrator starts without Slack auth errors
+- the user has a real Slack message test path

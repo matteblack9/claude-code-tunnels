@@ -1,60 +1,120 @@
 ---
 name: connect-telegram
-description: "Connect Telegram to an existing Orchestrator. Guides through bot creation via BotFather, bot_token input, and long-polling connection test. Run with /connect-telegram. Use for requests like 'connect telegram', 'add telegram channel'."
+description: "Connect Telegram to an existing orchestrator by collecting a BotFather token, optional allowlist, and validating long-polling startup."
 ---
 
-# Connect Telegram Channel
+# connect-telegram
 
-Connects a Telegram channel to an already-installed Orchestrator.
+## When To Use
 
-## Flow
+- The user wants to connect Telegram to the orchestrator
+- Telegram credentials are missing or need rotation
+- `channels.telegram.enabled` must be enabled in `orchestrator.yaml`
 
-### Step 1: Verify Orchestrator
+## Runtime Adaptation
 
-Check orchestrator.yaml exists. If not → redirect to /setup-orchestrator.
+- `claude`
+  Read this file first, then use `CLAUDE.md` or `.claude/` only as extra repo context.
+- `cursor`
+  Follow this file first, then apply `.cursor/rules`, `AGENTS.md`, and `CLAUDE.md` if they add repo-specific policy.
+- `codex`
+  Treat this file as the main Telegram setup checklist.
+- `opencode`
+  Follow this file first, then layer `AGENTS.md` and any OpenCode-only overrides on top.
 
-### Step 2: Telegram Bot Guide
+## Rules
 
-If no credentials found:
+- Never overwrite existing Telegram credentials without confirmation
+- Present detected values as numbered choices where possible
+- Store credentials under `ARCHIVE/telegram/credentials`
+- Empty `allowed_users` means the bot accepts all reachable Telegram users
 
-```
-Telegram Bot Setup:
-1. Open Telegram, search for @BotFather
+## Procedure
+
+### 1. Verify Orchestrator
+
+Check that `orchestrator.yaml` exists. If not, stop and run the `setup-orchestrator` skill first.
+
+Resolve `ARCHIVE_PATH` from `orchestrator.yaml`, then inspect whether `ARCHIVE/telegram/credentials` already exists.
+
+### 2. Telegram Bot Guide
+
+If the user does not already have a bot token, guide them through BotFather:
+
+```text
+1. Open Telegram and search for @BotFather
 2. Send /newbot
-3. Choose a name for your bot (e.g., "My Orchestrator Bot")
-4. Choose a username (must end in "bot", e.g., "my_orchestrator_bot")
-5. BotFather will give you a bot token like: 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
-6. Copy the entire token
+3. Choose a bot display name
+4. Choose a bot username ending in `bot`
+5. Copy the full token BotFather returns
 ```
 
-### Step 3: Collect Credentials
+### 3. Collect Credentials
 
+Ask for:
+
+```text
+bot_token
+allowed_users (optional, comma-separated usernames or numeric user IDs)
 ```
-bot_token: (the token from BotFather)
-allowed_users: (optional, comma-separated Telegram usernames or user IDs)
+
+Validation rules:
+
+- `bot_token` is required and must contain a colon
+- `allowed_users` is optional
+
+Summary before writing:
+
+```text
+Telegram credentials entered:
+  bot_token:      123456:...
+  allowed_users:  username1, username2
+
+Save with these values? (yes/no)
 ```
 
-### Step 4: Save & Configure
+### 4. Save And Configure
 
-1. Create ARCHIVE_PATH/telegram/credentials
-2. Update orchestrator.yaml: channels.telegram.enabled = true
-3. No extra dependencies needed (uses aiohttp)
+Write:
 
-### Step 5: Test
-
-1. Restart orchestrator
-2. Check logs for "Telegram channel starting (bot: @...)"
-3. Send a message to the bot on Telegram
-4. Verify the confirm/cancel flow works
-
-## Credential File Format
-
-```
+```text
 bot_token : 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
 allowed_users : username1, username2
 ```
 
-## Rules
+to:
 
-- The allowed_users field is optional. Empty = allow all users.
-- Bot token contains a colon — the credential parser splits on " : " (space-colon-space), so this is safe.
+```text
+ARCHIVE/telegram/credentials
+```
+
+Then enable:
+
+```yaml
+channels:
+  telegram:
+    enabled: true
+```
+
+Telegram does not require extra packages beyond the existing orchestrator HTTP stack.
+
+### 5. Validate The Channel
+
+Restart the orchestrator and confirm:
+
+- logs show Telegram startup without auth errors
+- the bot identifies correctly
+- a real Telegram message reaches the bot
+- the confirm/cancel flow works
+
+## Notes
+
+- `allowed_users` is optional
+- A Telegram token contains a colon, which is safe because credentials are parsed using ` : ` with spaces
+
+## Completion Checklist
+
+- `ARCHIVE/telegram/credentials` exists and is correctly formatted
+- `channels.telegram.enabled` is true in `orchestrator.yaml`
+- the orchestrator starts without Telegram errors
+- the user has completed a real message round-trip

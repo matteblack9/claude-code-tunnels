@@ -22,3 +22,9 @@ orchestrator/
 - **Log** results to `.tasks/`
 - **Notify** results back to the requesting channel
 - **Never** modify code directly — always delegates to workspaces
+
+## Skills
+
+- The `skills/` directory contains the environment/setup playbooks for this orchestrator
+- Before handling orchestrator setup, Slack/Telegram connection, or remote listener work, read the matching `skills/*/SKILL.md`
+- `AGENTS.md` stays runtime-neutral, while each `SKILL.md` carries the task-specific procedure and runtime adaptation notes

@@ -1,322 +1,127 @@
 ---
 name: setup-remote-project
-description: "Deploys a listener to a remote machine (SSH/kubectl) so the Orchestrator can use that machine's project as a workspace. Execute with /claude-code-tunnels:setup-remote-project."
+description: "Deploy a remote listener over SSH or kubectl so the orchestrator can execute one project/workspace on another machine."
 ---
 
-# Setup Remote Project
+# setup-remote-project
 
-Deploys a lightweight HTTP listener to a remote machine (SSH) or Kubernetes Pod,
-allowing the Orchestrator to use the remote environment's project as a workspace.
+## When To Use
 
-Key point: the listener runs directly on the remote machine. Claude uses `claude-agent-sdk query(cwd=)`, while Cursor/Codex/OpenCode use their local CLIs there, so tasks run against the remote workspace just as they would locally.
+- The user wants the orchestrator to execute a project or workspace on a different host
+- Remote runtime binaries and project files already live on the target machine
+- A listener must be deployed and registered in `remote_workspaces`
+
+The listener runs on the remote machine itself. Claude uses the Python SDK there, while Cursor/Codex/OpenCode use their own CLIs there.
+
+## Runtime Adaptation
+
+- `claude`
+  Verify `claude-agent-sdk` is importable on the remote host before deployment.
+- `cursor`
+  Verify `cursor-agent` exists on the remote host and the remote machine is authenticated in Cursor.
+- `codex`
+  Verify `codex` exists on the remote host and works non-interactively.
+- `opencode`
+  Verify `opencode` exists, provider login is complete, and any project-local `.opencode/` config is already on the remote machine.
 
 ## Rules
 
-- **Never proceed without asking the user**
-- **Auto-detected values are presented as numbered choices first** — the user only needs to enter a number
-- One listener per workspace (multiple workspaces on the same host → use different ports)
-- The remote workspace should expose guidance the PO can inspect: `AGENTS.md` for Cursor/Codex/OpenCode, `.cursor/rules` or `.cursorrules` for Cursor, `CLAUDE.md` or `.claude/` for Claude, and `opencode.json`/`.opencode/` when OpenCode-specific config is needed
-- The listener must run continuously (nohup by default, systemd/supervisord recommended)
+- Never deploy a remote listener silently; confirm the target first
+- Present detected values as numbered choices whenever possible
+- Use one listener per remote workspace; the same host can run multiple listeners on different ports
+- Preserve existing runtime guidance on the remote project: `AGENTS.md`, `CLAUDE.md`, `.claude/`, `.cursor/rules`, `.cursorrules`, `opencode.json`, `.opencode/`
+- The listener must remain running after setup; `nohup` is acceptable, but a service manager is better
 
----
+## Procedure
 
-## Step 0: Environment Preflight (CRITICAL)
+### 1. Local Preflight
 
-Connecting a remote project requires a local orchestrator installation and a means of accessing the remote machine (ssh/kubectl).
-Check each item in order — **if any check fails, do not proceed to the next step until it is resolved.**
+Verify:
 
-### 0-1. Verify orchestrator.yaml
+- `orchestrator.yaml` exists
+- `orchestrator/remote/deploy.py` and `orchestrator/remote/listener.py` exist
+- at least one remote access path is available: `ssh` or `kubectl`
+- current `remote_workspaces` entries are reviewed to avoid duplicate host/port conflicts
 
-**Why it is needed**: the remote_workspaces configuration must be registered in this file, and the executor reads remote host information from it.
+If `orchestrator.yaml` is missing, stop and run the `setup-orchestrator` skill first.
 
-- Not found → "Please run /claude-code-tunnels:setup-orchestrator first." then **stop**
+### 2. Collect Connection Details
 
-### 0-2. Verify orchestrator/remote/
+Gather:
 
-**Why it is needed**: `deploy.py` (the remote deployment script) and `listener.py` (the HTTP server to run on the remote machine) must be present for deployment.
+- `workspace_name` in `project/workspace` format
+- remote access method: `ssh` or `kubectl`
+- host, user, key file for SSH
+- namespace, pod, container, kubeconfig for kubectl
 
-```bash
-if [ ! -f "orchestrator/remote/deploy.py" ] || [ ! -f "orchestrator/remote/listener.py" ]; then
-  echo "orchestrator/remote/ files not found."
-fi
-```
+Run an immediate connectivity test after collecting the transport details.
 
-### 0-3. Verify access tools
+### 3. Remote Project Path
 
-**Why they are needed**: ssh or kubectl is required to copy listener.py to the remote machine and execute it.
+Ask for the absolute remote project path and verify it exists on the remote machine.
 
-Auto-detect available tools:
-```bash
-tools=()
-command -v ssh &>/dev/null && tools+=("ssh")
-command -v kubectl &>/dev/null && tools+=("kubectl")
-```
+Choose:
 
-```
-Select the remote access method.
-Used to copy and run listener.py on the remote machine.
+- listener port
+- optional bearer token
+- target runtime for that remote workspace
 
-  [1] ssh       <- detected
-  [2] kubectl   <- detected
-  [3] Enter manually (different path to ssh/kubectl)
+The port must not collide with existing listeners on the same host.
 
-Number:
-```
+### 4. Remote Environment Pre-check
 
-Zero candidates detected → "Could not find ssh or kubectl. Please install one and try again."
+Verify on the remote machine:
 
-### 0-4. Check existing remote_workspaces
+- `python3`
+- `aiohttp`
+- the selected runtime binary or SDK
+- any required runtime authentication state
+- the project path already contains the runtime guidance files that runtime expects
 
-**Why it is needed**: display the current registration state to prevent duplicate registration on the same host:port.
+If a prerequisite is missing, offer to install or stop and let the user fix it manually.
 
-```
-Currently registered remote workspaces:
-  (none)
-  — or —
-  my-project/backend → 10.0.0.5:9100
-  my-project/frontend → 10.0.0.5:9101
-```
+### 5. Deploy And Register
 
----
+Before executing, summarize:
 
-## Step 1: Collect Connection Details
+```text
+Remote deployment summary:
+  workspace:  my-project/backend
+  access:     ssh irteam@10.0.0.5
+  path:       /home/user/my-project
+  port:       9100
+  runtime:    cursor
+  token:      configured
 
-### 1-1. workspace_name
-
-```
-What name should the Orchestrator use to identify this remote project?
-This name will appear in the execution plan.
-Format: project/workspace (e.g. my-project/backend)
-
-Enter:
-```
-
-Validation: must contain `/` (project/workspace format).
-
-### 1-2. Collect SSH Details
-
-If the user selected ssh:
-
-```
-─────────────────────────────────────────────────────────────────
-1. host (required)
-   The IP address or hostname of the remote machine. Used to connect to the listener via HTTP.
-   Enter:
-
-2. user
-   The SSH username.
-
-     [1] $USER   <- current user
-     [2] Enter manually
-
-   Number:
-
-3. key_file
-   The SSH key file.
-
-     [1] ~/.ssh/id_rsa     <- exists
-     [2] ~/.ssh/id_ed25519 <- exists
-     [3] Use default key (ssh-agent)
-     [4] Enter manually
-
-   Number:
-─────────────────────────────────────────────────────────────────
-```
-
-SSH key candidates are auto-detected by scanning the `~/.ssh/` directory:
-```bash
-for f in ~/.ssh/id_rsa ~/.ssh/id_ed25519 ~/.ssh/id_ecdsa; do
-  [ -f "$f" ] && echo "$f"
-done
-```
-
-After input, **immediately run a connection test**:
-```bash
-ssh $USER@$HOST "echo 'SSH OK'"
-```
-- Failure → show the error and present re-entry choices
-
-### 1-3. Collect kubectl Details
-
-If the user selected kubectl:
-
-Auto-detect available namespaces/pods and present as choices:
-
-```bash
-# namespace list
-kubectl get namespaces -o jsonpath='{.items[*].metadata.name}' 2>/dev/null
-```
-
-```
-Select a namespace.
-
-  [1] default
-  [2] my-namespace
-  [3] production
-  [4] Enter manually
-
-Number:
-```
-
-Pod list after namespace selection:
-```bash
-kubectl get pods -n $NAMESPACE -o jsonpath='{.items[*].metadata.name}' 2>/dev/null
-```
-
-```
-Select a Pod.
-
-  [1] my-app-abc123
-  [2] my-app-def456
-  [3] Enter manually
-
-Number:
-```
-
-Container (for multi-container pods):
-```bash
-kubectl get pod $POD -n $NAMESPACE -o jsonpath='{.spec.containers[*].name}' 2>/dev/null
-```
-
-kubeconfig:
-```
-  [1] ~/.kube/config   <- default
-  [2] Enter manually
-
-Number:
-```
-
-Connection test: `kubectl exec $POD -n $NAMESPACE -- echo 'K8s OK'`
-
----
-
-## Step 2: Remote Workspace Path
-
-```
-Enter the absolute path where the project is located on the remote machine.
-The listener will run claude-agent-sdk query(cwd=) from this path.
-
-Enter (e.g. /home/user/my-project):
-```
-
-Validation — verify the path exists on the remote machine:
-```bash
-ssh $USER@$HOST "test -d $REMOTE_CWD && echo OK || echo FAIL"
-```
-
-Listener port:
-```bash
-# Auto-detect available ports on the remote machine
-for p in 9100 9101 9102; do
-  ssh $USER@$HOST "ss -tlnp 2>/dev/null | grep -q ':${p} '" || available+=("$p")
-done
-```
-
-```
-Select the listener port.
-The executor will send HTTP requests to this port.
-
-  [1] 9100   <- available
-  [2] 9101   <- available
-  [3] Enter manually
-
-Number:
-```
-
-Auth token:
-```
-Would you like to set up Bearer token authentication on the listener?
-When configured, only the orchestrator will be able to access the listener.
-
-  [1] No authentication (not needed on an internal network)
-  [2] Enter a token
-
-Number:
-```
-
----
-
-## Step 3: Remote Environment Pre-check (CRITICAL)
-
-**Why it is needed**: the listener uses Python + aiohttp on the remote machine, plus runtime-specific executors such as `claude-agent-sdk` for Claude or `cursor-agent` / `codex` / `opencode` CLIs for the other runtimes. If the selected runtime is missing, execution will fail.
-
-```bash
-# Check remote Python
-ssh $USER@$HOST "python3 --version"
-
-# Check remote packages
-ssh $USER@$HOST "python3 -c 'import claude_agent_sdk'" 2>/dev/null
-ssh $USER@$HOST "python3 -c 'import aiohttp'" 2>/dev/null
-```
-
-```
-Remote environment check results:
-  Python:            3.11.5            ✓
-  claude-agent-sdk:  OK                ✓
-  aiohttp:           NOT INSTALLED     ✗
-
-Some packages are not installed.
-
-  [1] Install on remote now (run pip install via ssh)
-  [2] Install manually and continue
-  [3] Ignore and continue (errors may occur when the listener starts)
-
-Number:
-```
-
----
-
-## Step 4: Deploy Listener
-
-Show deployment summary and confirm:
-```
-Deployment summary:
-  Target:     $USER@$HOST
-  Path:       $REMOTE_CWD/.claude-listener.py
-  Port:       $LISTENER_PORT
-  Token:      (set / none)
-
-listener.py will be copied to the remote machine and started.
 Proceed? (yes/no)
 ```
 
-Deployment steps:
-1. Copy listener.py to the remote machine (`remote_cwd/.claude-listener.py`)
-2. Kill any existing listener process
-3. Start with nohup (log: `/tmp/claude-listener-{port}.log`)
-4. Automatically run a health check (up to 6 attempts, 2 seconds apart)
+Then:
 
----
+1. copy the listener to the remote host
+2. stop any conflicting process on the same port
+3. start the listener and capture logs
+4. register the new entry in `orchestrator.yaml`
 
-## Step 5: Register in orchestrator.yaml & Validate
+### 6. Validate
 
-```yaml
-remote_workspaces:
-  - name: $WORKSPACE_NAME
-    host: $HOST
-    port: $LISTENER_PORT
-    token: "$LISTENER_TOKEN"
-```
+Run:
 
-Validation:
 ```bash
 curl http://$HOST:$LISTENER_PORT/health
-# Expected: {"status": "ok", "cwd": "$REMOTE_CWD", "port": $LISTENER_PORT}
 ```
 
-- Success → "Remote project connection complete."
-- Failure → show the error details and analyze the cause. Do not retry automatically.
+Expected shape:
 
-## Listener API
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/health` | GET | Check status |
-| `/execute` | POST | Execute a task. Body: `{"task": "...", "upstream_context": {}}` |
-
-## Viewing Logs
-
-```bash
-ssh $USER@$HOST cat /tmp/claude-listener-$LISTENER_PORT.log
-kubectl exec $POD -n $NAMESPACE -- cat /tmp/claude-listener-$LISTENER_PORT.log
+```json
+{"status": "ok", "cwd": "...", "runtime": "cursor"}
 ```
+
+If validation fails, inspect remote logs and stop instead of retrying blindly.
+
+## Completion Checklist
+
+- the remote listener is reachable from the orchestrator host
+- `remote_workspaces` contains the correct host, port, token, and runtime
+- the remote project exposes the right runtime guidance files
+- the user knows how to inspect remote listener logs

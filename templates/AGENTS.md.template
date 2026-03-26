@@ -18,6 +18,13 @@ This directory is the Project Orchestrator root. It coordinates Workspaces and W
 - `opencode` reads `AGENTS.md`, can also use `opencode.json` and `.opencode/skills/`
 - `opencode` may fall back to `CLAUDE.md` and `.claude/` when those already exist
 
+## Skills-First Rules
+
+- Treat `skills/*/SKILL.md` as the canonical playbooks for orchestrator setup, channel connection, and remote listener tasks
+- Before doing environment/configuration work, read the matching `SKILL.md` first and follow it instead of inventing a new flow
+- Keep shared repo policy in `AGENTS.md`, and keep task-specific operational procedures in the `skills/` tree
+- When a `SKILL.md` includes runtime notes, apply the section for the active runtime (`claude`, `cursor`, `codex`, or `opencode`)
+
 ## Operating Rules
 
 - Keep orchestrator-level config in `orchestrator.yaml`

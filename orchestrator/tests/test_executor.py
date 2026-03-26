@@ -116,6 +116,31 @@ class TestRunWorkspace:
             assert "server: Added GET /health endpoint" in invocation.prompt
             assert "<task>" in invocation.prompt
 
+    @pytest.mark.asyncio
+    async def test_matching_skill_is_preloaded_into_prompt(self, tmp_path):
+        skill_dir = tmp_path / "skills" / "connect-slack"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            "---\nname: connect-slack\ndescription: connect slack\n---\n\n# Connect Slack\n\nDo the Slack flow.\n",
+            encoding="utf-8",
+        )
+
+        with patch("orchestrator.executor.execute_runtime", new_callable=AsyncMock) as mock_execute:
+            mock_execute.return_value = _runtime_result(
+                '{"changed_files": [], "summary": "ok", "test_result": "pass", "downstream_context": ""}'
+            )
+
+            await run_workspace(
+                project="project",
+                workspace="frontend",
+                task="connect slack channel for this orchestrator",
+                base_dir=tmp_path,
+            )
+
+            invocation = mock_execute.await_args.args[0]
+            assert "Local Skill Playbooks" in invocation.prompt
+            assert '<skill name="connect-slack"' in invocation.prompt
+
 
 class TestExecutePhases:
     @pytest.mark.asyncio

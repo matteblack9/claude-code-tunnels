@@ -9,6 +9,7 @@ import logging
 from orchestrator import BASE
 from orchestrator.runtime import RuntimeInvocation, execute_runtime
 from orchestrator.sanitize import wrap_user_input
+from orchestrator.skills import build_skills_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,7 @@ You receive a user request, execute it using the available tools, and return a c
 - Return your answer as plain text (markdown OK). Do NOT wrap in JSON.
 - Be concise but thorough. Include relevant details the user would want.
 - Answer in the same language as the user's request.
+- If the request matches a local skill under `skills/`, follow that skill as the primary procedure.
 
 ## Available Infrastructure & Tools
 
@@ -133,6 +135,10 @@ NEVER access files outside the project directory except ARCHIVE/ for API credent
 async def handle_direct_request(user_message: str) -> str:
     """Execute a direct (non-project) request and return the answer text."""
     sandboxed_prompt = wrap_user_input(user_message)
+    system_prompt = DIRECT_HANDLER_SYSTEM_PROMPT
+    skills_prompt = build_skills_prompt(user_message, BASE)
+    if skills_prompt:
+        system_prompt += "\n\n" + skills_prompt
 
     try:
         result = await execute_runtime(
@@ -140,7 +146,7 @@ async def handle_direct_request(user_message: str) -> str:
                 role="direct_handler",
                 cwd=str(BASE),
                 prompt=sandboxed_prompt,
-                system_prompt=DIRECT_HANDLER_SYSTEM_PROMPT,
+                system_prompt=system_prompt,
                 allowed_tools=[
                     "Read", "Glob", "Grep", "Bash",
                     "WebFetch", "WebSearch",

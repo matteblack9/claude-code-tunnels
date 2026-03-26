@@ -9,6 +9,7 @@ from pathlib import Path
 from orchestrator import BASE, extract_json, list_workspace_ids, repair_json, uses_workspace_registry
 from orchestrator.runtime import RuntimeInvocation, execute_runtime
 from orchestrator.sanitize import wrap_user_input, validate_project_name
+from orchestrator.skills import build_skills_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,8 @@ return {"no_project": true}. These requests are handled directly by the PO.
 5. If ambiguous, return clarification_needed.
 6. Optionally refine the user_message for the PO — remove noise, add context. \
 If the message is already clear, return it unchanged.
+7. Requests that match an orchestrator setup/channel/remote skill should stay project-bound. \
+In single-project mode they should route to the current project root instead of being treated as misc/no_project.
 
 ## Response format (return only this JSON)
 
@@ -67,12 +70,16 @@ async def route_request(
     """Identify target project(s) from user message using a lightweight agent call."""
     base = base_dir or BASE
     system_prompt = ROUTER_SYSTEM_PROMPT
+    skills_prompt = build_skills_prompt(user_message, base, include_full_text=False)
+    if skills_prompt:
+        system_prompt += "\n\n" + skills_prompt
     if uses_workspace_registry():
         workspace_ids = ", ".join(list_workspace_ids(base))
         system_prompt += (
             "\n\n## Single-project mode\n"
             "- The current working directory is the only project root.\n"
             '- If the request is tied to workspace execution, return {"project": ".", ...}.\n'
+            '- Requests that match local setup/channel/remote skills are also project-root work and should return {"project": ".", ...}.\n'
             '- Only return {"no_project": true} for requests that are clearly unrelated to workspace work.\n'
             f"- Available workspace ids: {workspace_ids or '(none configured)'}.\n"
         )

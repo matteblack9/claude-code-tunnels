@@ -106,9 +106,15 @@ def extract_json(text: str) -> dict:
     raise ValueError("No valid JSON found in response")
 
 
-def build_prompt(task: str, upstream_context: dict[str, str] | None) -> str:
+def build_prompt(
+    task: str,
+    upstream_context: dict[str, str] | None,
+    skill_context: str = "",
+) -> str:
     """Build the remote executor prompt."""
     sections: list[str] = []
+    if skill_context:
+        sections.append(skill_context.strip())
     if upstream_context:
         lines = [f"- {workspace}: {summary}" for workspace, summary in upstream_context.items()]
         sections.append(
@@ -283,10 +289,15 @@ def run_opencode(prompt: str) -> str:
     return _extract_text_from_json_events(stdout) or stdout
 
 
-async def execute_task(task: str, runtime: str, upstream_context: dict[str, str] | None) -> dict:
+async def execute_task(
+    task: str,
+    runtime: str,
+    upstream_context: dict[str, str] | None,
+    skill_context: str = "",
+) -> dict:
     """Execute the task and return structured JSON-compatible output."""
     runtime_name = (runtime or LISTENER_RUNTIME or "claude").strip().lower()
-    prompt = build_prompt(task, upstream_context)
+    prompt = build_prompt(task, upstream_context, skill_context)
 
     if runtime_name == "claude":
         raw = await run_claude(prompt)
@@ -341,12 +352,13 @@ async def handle_execute(request: web.Request) -> web.Response:
     task = str(payload.get("task", "")).strip()
     runtime = str(payload.get("runtime") or LISTENER_RUNTIME).strip().lower()
     upstream_context = payload.get("upstream_context") or {}
+    skill_context = str(payload.get("skill_context") or "")
 
     if not task:
         return web.json_response({"error": "task is required"}, status=400)
 
     try:
-        result = await execute_task(task, runtime, upstream_context)
+        result = await execute_task(task, runtime, upstream_context, skill_context)
         return web.json_response(result)
     except Exception as exc:
         logger.exception("Remote execution failed")
