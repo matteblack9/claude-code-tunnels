@@ -43,25 +43,53 @@ The current setup flow is optimized for that layout. Legacy filesystem discovery
 
 ```mermaid
 flowchart TD
-    U["Slack / Telegram user message"]
-    C["Channel adapter"]
-    G["ConfirmGate"]
-    R["Router"]
-    P["PO"]
-    E["Executor"]
-    W1["WO: backend (codex)"]
-    W2["WO: frontend (claude)"]
-    W3["WO: staging (opencode or remote)"]
-    L["Task log (.tasks/)"]
+    subgraph CHANNELS["Channels"]
+        U["Slack / Telegram"]
+        CA["Channel adapters"]
+    end
 
-    U --> C --> G --> R --> P --> E
-    E --> W1
-    E --> W2
-    E --> W3
-    W1 --> L
-    W2 --> L
-    W3 --> L
-    L --> C
+    subgraph CONTROL["Python control plane"]
+        G["ConfirmGate"]
+        R["Router"]
+        P["PO"]
+        D["Direct handler"]
+        E["Executor"]
+        L["Task log (.tasks/)"]
+    end
+
+    subgraph LOCAL["Local execution"]
+        RT["Runtime layer"]
+        CSDK["Claude SDK"]
+        BR["Node bridge"]
+        CX["Codex SDK"]
+        OC["OpenCode SDK"]
+    end
+
+    subgraph REMOTE["Remote execution"]
+        RL["Remote listener"]
+        RR["Remote runtime"]
+    end
+
+    U --> CA --> G
+    G --> R
+    R --> P
+    R --> D
+    P --> E
+    D --> CA
+
+    E --> RT
+    E --> RL
+    RT --> CSDK
+    RT --> BR
+    BR --> CX
+    BR --> OC
+    RL --> RR
+
+    CSDK --> L
+    CX --> L
+    OC --> L
+    RR --> L
+    L --> CA
 ```
 
 ## Quick Start
@@ -123,6 +151,31 @@ The TUI uses these rules:
 ## How To Run
 
 After setup has written `orchestrator.yaml` and `start-orchestrator.sh`, run from the `PO` root:
+
+### Operational Flow
+
+```mermaid
+flowchart TD
+    START["Run start-orchestrator.sh"] --> ORCH["orchestrator.main"]
+    ORCH --> CHANNEL["Slack / Telegram adapter"]
+    CHANNEL --> GATE["ConfirmGate"]
+    GATE --> ROUTER["Router"]
+    ROUTER --> PO["PO"]
+    PO --> EXEC["Executor"]
+
+    EXEC --> PH1["Phase 1"]
+    PH1 --> WO1["WO: ws-a"]
+    PH1 --> WO2["WO: ws-b"]
+    WO1 --> PH2["Phase 2"]
+    WO2 --> PH2
+    PH2 --> WO3["WO: ws-c"]
+
+    WO1 --> LOG["Task log"]
+    WO2 --> LOG
+    WO3 --> LOG
+    LOG --> RESULT["Formatted channel response"]
+    RESULT --> CHANNEL
+```
 
 ```bash
 # Foreground, recommended for first run or debugging
