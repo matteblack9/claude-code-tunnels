@@ -1001,6 +1001,9 @@ tail -f /tmp/orchestrator-$(date +%Y%m%d).log
 # Reconfigure
 .venv/bin/python -m orchestrator.setup_tui
 
+# Validate Mermaid diagrams in docs
+npm run validate:mermaid
+
 # Stop
 kill $(pgrep -f "orchestrator.main")
 ```
