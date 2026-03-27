@@ -10,6 +10,8 @@
 
 Claude-Code-Tunnels is a plugin that creates a **Project Orchestrator (PO)** layer on top of [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code). Send a message from Slack or Telegram — the orchestrator routes to the right projects, plans dependency-aware phases, and delegates each task to a **fresh, isolated Claude session** scoped to that workspace's `.claude/` context. Add as many projects and workspaces as you want: one channel connection scales to any tree depth.
 
+If you want the **multi-code-agent version** (codex, claude, opencode, cursor), see [agent-fabric](https://github.com/matteblack9/agent-fabric).
+
 Quick glossary:
 
 - **PO**: the control plane that routes requests and builds phased execution plans
