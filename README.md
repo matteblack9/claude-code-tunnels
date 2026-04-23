@@ -6,7 +6,12 @@
 [![Slack](https://img.shields.io/badge/Channel-Slack-4A154B.svg?logo=slack)](https://api.slack.com/apps)
 [![Telegram](https://img.shields.io/badge/Channel-Telegram-26A5E4.svg?logo=telegram)](https://core.telegram.org/bots)
 
-**One channel connection. Unlimited projects. Every workspace runs in its own isolated session.**
+**One channel connection.** 
+**One Project Orchestrator.** <br>
+**Every workspace runs through its own isolated Workspace Orchestrator.** <br> 
+**Manage your project wherever you are. Coding Agent Fabric can keep work moving even when you're away.**
+
+
 
 Claude-Code-Tunnels is a plugin that creates a **Project Orchestrator (PO)** layer on top of [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code). Send a message from Slack or Telegram — the orchestrator routes to the right projects, plans dependency-aware phases, and delegates each task to a **fresh, isolated Claude session** scoped to that workspace's `.claude/` context. Add as many projects and workspaces as you want: one channel connection scales to any tree depth.
 
