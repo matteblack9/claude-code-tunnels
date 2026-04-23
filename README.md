@@ -1,4 +1,4 @@
-# Claude-Code-Tunnels (Micro-Agent Architecture Manager)
+# claude-code-clone (Micro-Agent Architecture Manager)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
@@ -9,11 +9,30 @@
 **One channel connection.** 
 **One Project Orchestrator.** <br>
 **Every workspace runs through its own isolated Workspace Orchestrator.** <br> 
-**Manage your project wherever you are. Coding Agent Fabric can keep work moving even when you're away.**
+**Manage your project wherever you are. claude-code-clone can keep work moving even when you're away.**
+
+```mermaid
+sequenceDiagram
+    participant Teammate
+    participant Channel as Slack or Telegram
+    participant Clone as claude-code-clone
+    participant Owner as Owner's system
+    participant Claude as Claude Code
+    participant WO as Workspace Orchestrator
+
+    Note over Teammate,Owner: The owner is on vacation, offline, or away from the keyboard.
+    Teammate->>Channel: Ask a question or request a project change
+    Channel->>Clone: Deliver the message to claude-code-clone
+    Clone->>Owner: Route the request into the owner's system
+    Owner->>Claude: Start the right Claude Code session
+    Claude->>WO: Inspect the matching workspace context
+    WO-->>Claude: Return findings, edits, or a proposed answer
+    Claude-->>Clone: Respond with the owner's project context
+    Clone-->>Channel: Answer the teammate from Slack or Telegram
+```
 
 
-
-Claude-Code-Tunnels is a plugin that creates a **Project Orchestrator (PO)** layer on top of [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code). Send a message from Slack or Telegram — the orchestrator routes to the right projects, plans dependency-aware phases, and delegates each task to a **fresh, isolated Claude session** scoped to that workspace's `.claude/` context. Add as many projects and workspaces as you want: one channel connection scales to any tree depth.
+claude-code-clone is a plugin that creates a **Project Orchestrator (PO)** layer on top of [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code). Send a message from Slack or Telegram — the orchestrator routes to the right projects, plans dependency-aware phases, and delegates each task to a **fresh, isolated Claude session** scoped to that workspace's `.claude/` context. Add as many projects and workspaces as you want: one channel connection scales to any tree depth.
 
 If you want the **multi-code-agent version** (codex, claude, opencode, cursor), see [agent-fabric](https://github.com/matteblack9/agent-fabric).
 
@@ -27,7 +46,7 @@ Quick glossary:
 
 ## Micro-Agent Architecture (MAA)
 
-Just as **Microservice Architecture (MSA)** decomposed the monolith into independently deployable services — each with its own database, its own boundary, its own scaling — Claude-Code-Tunnels decomposes the single AI session into independently executing **micro-agents**, each with its own workspace, its own `.claude/` context, and its own session lifecycle.
+Just as **Microservice Architecture (MSA)** decomposed the monolith into independently deployable services — each with its own database, its own boundary, its own scaling — claude-code-clone decomposes the single AI session into independently executing **micro-agents**, each with its own workspace, its own `.claude/` context, and its own session lifecycle.
 
 We call this pattern **Micro-Agent Architecture (MAA)**.
 
@@ -157,9 +176,9 @@ flowchart TB
 
 ## Why This Over Claude Code's Built-in Channels?
 
-Claude Code [recently introduced Channels](https://docs.anthropic.com/en/docs/claude-code/channels) (research preview) — a way to push messages from Telegram/Discord into a running CLI session. Here's why Claude-Code-Tunnels is fundamentally different:
+Claude Code [recently introduced Channels](https://docs.anthropic.com/en/docs/claude-code/channels) (research preview) — a way to push messages from Telegram/Discord into a running CLI session. Here's why claude-code-clone is fundamentally different:
 
-| Feature | Claude Code Channels | Claude Code Tunnels |
+| Feature | Claude Code Channels | claude-code-clone |
 |---------|---------------------|---------------------|
 | **Architecture** | Single CLI session, single cwd | Always-on server with multi-project orchestration |
 | **Session model** | Session-bound (stops when CLI closes) | Background daemon (survives disconnects) |
@@ -178,13 +197,13 @@ Claude Code [recently introduced Channels](https://docs.anthropic.com/en/docs/cl
 | **Enterprise** | Needs org-level `channelsEnabled` toggle | Self-hosted, no org restrictions |
 | **Permission model** | Interactive prompts block execution | `bypassPermissions` for unattended operation |
 
-**In short**: Claude Code Channels is a raw message bridge into a single session. Claude-Code-Tunnels is a full orchestration layer — each workspace runs in its own isolated session, and one channel connection scales to any number of projects.
+**In short**: Claude Code Channels is a raw message bridge into a single session. claude-code-clone is a full orchestration layer — each workspace runs in its own isolated session, and one channel connection scales to any number of projects.
 
 ---
 
 ## Team Collaboration — Shared Channel, Zero Handoff
 
-Traditional setups tie the AI assistant to one person's session. Claude-Code-Tunnels flips this: **the orchestrator lives in the Slack channel, not on anyone's laptop**. Invite the app to a shared channel, invite your teammates — now anyone in the channel can interact with the orchestrator. When you're on vacation, out sick, or simply offline, your team keeps working with full access to every project and workspace.
+Traditional setups tie the AI assistant to one person's session. claude-code-clone flips this: **the orchestrator lives in the Slack channel, not on anyone's laptop**. Invite the app to a shared channel, invite your teammates — now anyone in the channel can interact with the orchestrator. When you're on vacation, out sick, or simply offline, your team keeps working with full access to every project and workspace.
 ```mermaid
 flowchart TB
     subgraph SLACK["#dev-orchestrator · Slack Channel"]
@@ -233,7 +252,7 @@ flowchart TB
 
 ## How Delegation Works
 
-The core value of Claude-Code-Tunnels is **delegation** — even with dozens of projects and workspaces, the PO analyzes a single natural-language request, identifies the right targets, builds a dependency-aware execution plan, and delegates each piece to the appropriate workspace agent. You never have to specify which project or workspace to touch.
+The core value of claude-code-clone is **delegation** — even with dozens of projects and workspaces, the PO analyzes a single natural-language request, identifies the right targets, builds a dependency-aware execution plan, and delegates each piece to the appropriate workspace agent. You never have to specify which project or workspace to touch.
 
 Two properties make this scale:
 
